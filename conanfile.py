@@ -16,7 +16,6 @@ class bxConan(ConanFile):
     settings = "os", "compiler", "arch", "build_type"
     options = {"shared": [True, False]}
     default_options = {"shared": False}
-    generators = "json"
 
     invalidPackageExceptionText = "Less lib files found for copy than expected. Aborting."
     expectedNumLibs = 1
@@ -54,11 +53,9 @@ class bxConan(ConanFile):
 
     def set_version(self):
         self.output.info("Setting version from git.")
+        tools.rmdir(self.bxFolder)
         git = tools.Git(folder=self.bxFolder)
-        remote = git.get_remote_url()
-        self.output.info(remote)
-        if not remote == f"{self.homepage}.git":
-            git.clone(f"{self.homepage}.git", "master")
+        git.clone(f"{self.homepage}.git", "master")
         # Hackjob semver! Versioning by commit seems rather annoying for users, so let's version by commit count
         numCommits = int(git.run("rev-list --count master"))
         verMajor = 1 + (numCommits // 10000)
@@ -74,11 +71,12 @@ class bxConan(ConanFile):
 
     def build(self):
         # Map conan compilers to genie input
+        genie = os.path.sep.join([self.toolsFolder, "genie"])
         if self.settings.compiler == "Visual Studio":
             # Use genie directly, then msbuild on specific projects based on requirements
             genieGen = f"vs{self.vsVerToGenie[str(self.settings.compiler.version)]}"
             self.output.highlight(genieGen)
-            self.run(f"cd {self.bxFolder} && .\\tools\\bin\\windows\\genie.exe {genieGen}")
+            self.run(f"{genie} {genieGen}", cwd=self.bxFolder)
             msbuild = MSBuild(self)
             msbuild.build(f"{self.bxFolder}\\.build\\projects\\{genieGen}\\bx.vcxproj")
         else:
@@ -88,7 +86,6 @@ class bxConan(ConanFile):
             
             # Generate projects through genie
             genieGen = f"{self.gccOsToGenie[str(self.settings.os)]} gmake"
-            genie = os.path.sep.join([self.toolsFolder, "genie"])
             self.run(f"{genie} {genieGen}", cwd=self.bxFolder)
 
             # Build project folder and path from given settings
