@@ -14,8 +14,6 @@ class bxConan(ConanFile):
     description = "Base library providing utility functions and macros."
     topics = ("lib-static", "C++", "C++14", "general", "utility")
     settings = "os", "compiler", "arch", "build_type"
-    options = {"shared": [True, False]}
-    default_options = {"shared": False}
 
     invalidPackageExceptionText = "Less lib files found for copy than expected. Aborting."
     expectedNumLibs = 1
@@ -35,19 +33,12 @@ class bxConan(ConanFile):
 
     def configure(self):
         if self.settings.os == "Windows":
-            if self.options.shared:
-                self.libExt = ["*.dll"]
-            else:
-                self.libExt = ["*.lib"]
-            self.libExt.extend(["*.pdb"])
-            self.packageLibExt = ""
+            self.libExt = ["*.lib", "*.pdb"]
+            self.packageLibPrefix = ""
             self.binFolder = "windows"
         elif self.settings.os == "Linux":
-            if self.options.shared:
-                self.libExt = ["*.so"]
-            else:
-                self.libExt = ["*.a"]
-            self.packageLibExt = ".a"
+            self.libExt = ["*.a"]
+            self.packageLibPrefix = "lib"
             self.binFolder = "linux"
         self.toolsFolder = cwd=os.path.sep.join([".", "tools", "bin", self.binFolder])
 
@@ -116,11 +107,11 @@ class bxConan(ConanFile):
             for ind in range(1, len(self.libExt)):
                 self.copy(self.libExt[ind], dst="lib", src=f"{self.bxFolder}/.build/", keep_path=False)
         for bxFile in Path(f"{self.package_folder}/lib").glob("*bx*"):
-            tools.rename(f"{self.package_folder}/lib/{bxFile.name}", f"{self.package_folder}/lib/bx{bxFile.suffix}")
+            tools.rename(f"{self.package_folder}/lib/{bxFile.name}", f"{self.package_folder}/lib/{self.packageLibPrefix}bx{bxFile.suffix}")
 
     def package_info(self):
         self.cpp_info.includedirs = ["include"]
-        self.cpp_info.libs = [f"bx{self.packageLibExt}"]
+        self.cpp_info.libs = ["bx"]
 
         if self.settings.build_type == "Release":
             self.cpp_info.defines.extend(["BX_CONFIG_DEBUG=0"])
