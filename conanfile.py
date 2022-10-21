@@ -1,5 +1,6 @@
 from enum import auto
 from conans import ConanFile, tools, MSBuild, AutoToolsBuildEnvironment
+from conan.tools.microsoft import is_msvc
 from pathlib import Path
 import os
 
@@ -19,8 +20,8 @@ class bxConan(ConanFile):
     expectedNumLibs = 1
     bxFolder = "bx"
     
-
-    vsVerToGenie = {"17": "2022", "16": "2019", "15": "2017"}
+    vsVerToGenie = {"17": "2022", "16": "2019", "15": "2017",
+                    "193": "2022", "192": "2019", "191": "2017"}
 
     gccOsToGenie = {"Windows": "--gcc=mingw-gcc", "Linux": "--gcc=linux-gcc", "Macos": "--gcc=osx", "Android": "--gcc=android", "iOS": "--gcc=ios"}
     gmakeOsToProj = {"Windows": "mingw", "Linux": "linux", "Macos": "osx", "Android": "android", "iOS": "ios"}
@@ -30,6 +31,10 @@ class bxConan(ConanFile):
     buildTypeToMakeConfig = {"Debug": "config=debug", "Release": "config=release"}
     archToMakeConfigSuffix = {"x86": "32", "x86_64": "64"}
     osToUseMakeConfigSuffix = {"Windows": True, "Linux": True, "Macos": False, "Android": False, "iOS": False}
+
+    def package_id(self):
+        if is_msvc(self):
+            del self.info.settings.compiler.cppstd
 
     def configure(self):
         if self.settings.os == "Windows":
@@ -63,7 +68,7 @@ class bxConan(ConanFile):
     def build(self):
         # Map conan compilers to genie input
         genie = os.path.sep.join([self.toolsFolder, "genie"])
-        if self.settings.compiler == "Visual Studio":
+        if is_msvc(self):
             # Use genie directly, then msbuild on specific projects based on requirements
             genieGen = f"vs{self.vsVerToGenie[str(self.settings.compiler.version)]}"
             self.output.highlight(genieGen)
@@ -113,6 +118,10 @@ class bxConan(ConanFile):
         self.cpp_info.includedirs = ["include"]
         self.cpp_info.libs = ["bx"]
 
+        self.cpp_info.set_property("cmake_file_name", "bx")
+        self.cpp_info.set_property("cmake_target_name", "bx::bx")
+        self.cpp_info.set_property("pkg_config_name", "bx")
+
         if self.settings.build_type == "Release":
             self.cpp_info.defines.extend(["BX_CONFIG_DEBUG=0"])
         elif self.settings.build_type == "Debug":
@@ -121,12 +130,24 @@ class bxConan(ConanFile):
         if self.settings.os == "Windows":
             if self.settings.arch == "x86":
                     self.cpp_info.system_libs.extend(["psapi"])
-            if self.settings.compiler == "Visual Studio":
+            if is_msvc(self):
                 self.cpp_info.includedirs.extend(["include/compat/msvc"])
                 self.cpp_info.cxxflags.extend(["/Zc:__cplusplus"])
             else:
                 self.cpp_info.includedirs.extend(["include/compat/mingw"])
-        elif self.settings.os == "Linux":
+        elif self.settings.os in ["Linux", "FreeBSD"]:
             self.cpp_info.system_libs.extend(["pthread"])
-            self.cpp_info.includedirs.extend(["include/compat/linux"])
+            if self.settings.os == "Linux":
+                self.cpp_info.includedirs.extend(["include/compat/linux"])
+            else:
+                self.cpp_info.includedirs.extend(["include/compat/freebsd"])
+        elif self.settings.os == "Macos":
+            self.cpp_info.includedirs.extend(["include/compat/msvc"])
+        elif self.settings.os == "iOS":
+            self.cpp_info.includedirs.extend(["include/compat/ios"])
 
+        #  TODO: to remove in conan v2 once cmake_find_package_* generators removed
+        self.cpp_info.filenames["cmake_find_package"] = "bx"
+        self.cpp_info.filenames["cmake_find_package_multi"] = "bx"
+        self.cpp_info.names["cmake_find_package"] = "bx"
+        self.cpp_info.names["cmake_find_package_multi"] = "bx"
