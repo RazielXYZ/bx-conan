@@ -2,7 +2,6 @@ from conan import ConanFile
 from conan.tools.files import rmdir, copy, rename
 from conan.tools.build import check_min_cppstd
 from conan.tools.scm import Git
-from conan.tools.env import Environment
 from conan.tools.layout import basic_layout
 from conan.tools.microsoft import is_msvc
 from conan.tools.microsoft import MSBuild, VCVars
@@ -128,17 +127,14 @@ class bxConan(ConanFile):
                 projFolder += self.gmakeArchToGenieSuffix[str(self.settings.arch)]
             projPath = os.path.sep.join([self.bxPath, ".build", "projects", projFolder])
 
-            #autotools = AutoToolsBuildEnvironment(self)
-            #with tools.environment_append(autotools.vars):
             # Build make args from settings
             conf = self.buildTypeToMakeConfig[str(self.settings.build_type)]
             if self.osToUseMakeConfigSuffix[str(self.settings.os)]:
                 conf += self.archToMakeConfigSuffix[str(self.settings.arch)]
             autotools = Autotools(self)
-            # Compile with make
+            # Build with make
             for proj in self.projs:
                 autotools.make(target=proj, args=["-R", f"-C {projPath}", conf])
-                #self.run(f"make {conf} {proj}", cwd=projPath)
 
     def package(self):
         # Get build bin folder
