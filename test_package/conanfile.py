@@ -19,14 +19,12 @@ class TestPackageConan(ConanFile):
         self.requires(self.tested_reference_str)
 
     def build(self):
-        if self.settings_build.arch == self.settings.arch or not is_msvc(self):
+        if can_run(self):
             cmake = CMake(self)
             cmake.configure()
             cmake.build()
-        else:
-            self.output.info("Cross-building test is broken on msvc. Skipping.")
 
     def test(self):
-        if can_run(self) and (self.settings_build.arch == self.settings.arch or not is_msvc(self)):
+        if can_run(self):
             bin_path = os.path.join(self.cpp.build.bindirs[0], "test_package")
             self.run(bin_path, env="conanrun")
